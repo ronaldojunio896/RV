@@ -76,7 +76,7 @@ export default function FormInvestigado({ onSave, mapsLoaded }: FormInvestigadoP
       const geocoder = new window.google.maps.Geocoder();
       try {
         const result = await new Promise<any>((resolve) => {
-          geocoder.geocode({ address: pessoalForm.endereco }, (results, status) => {
+          geocoder.geocode({ address: pessoalForm.endereco }, (results: any, status: any) => {
             if (status === "OK" && results && results[0]) {
               resolve(results[0].geometry.location);
             } else {

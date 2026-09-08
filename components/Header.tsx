@@ -1,72 +1,73 @@
 "use client";
 
 import React from "react";
-import { LayoutDashboard, FileText, HardDrive, MapPin, FolderPlus, LogOut } from "lucide-react";
+import { Shield, Users, ShoppingBag, Map, LogOut, Grid } from "lucide-react";
 
 interface HeaderProps {
-  activeTab: string;
+  activeTab: "investigacao" | "revenda" | "mapa" | "modulo4";
   setActiveTab: (tab: "investigacao" | "revenda" | "mapa" | "modulo4") => void;
   handleLogout: () => void;
 }
 
 export default function Header({ activeTab, setActiveTab, handleLogout }: HeaderProps) {
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-800 bg-slate-950/80 backdrop-blur-md">
-      <div className="flex flex-col md:flex-row items-center justify-between px-6 py-4 max-w-7xl mx-auto gap-4">
-        <div className="flex items-center gap-3">
-          <div className="bg-emerald-600 p-2 rounded-lg">
-            <LayoutDashboard className="text-white" size={20} />
+    <header className="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40">
+      <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
+        <div className="flex items-center gap-2">
+          <div className="bg-emerald-500/10 border border-emerald-500/20 p-2 rounded-xl text-emerald-400">
+            <Shield size={22} />
           </div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-100">
-            Painel<span className="text-emerald-500">Pro</span>
-          </h1>
+          <div>
+            <h1 className="font-bold text-base md:text-lg text-slate-100 leading-none">PainelPro</h1>
+            <span className="text-[10px] text-slate-400 font-mono tracking-wider">INVESTIGAÇÃO & GESTÃO</span>
+          </div>
         </div>
 
-        <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800 flex-wrap justify-center gap-1">
+        <nav className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 overflow-x-auto max-w-full">
           <button
             type="button"
             onClick={() => setActiveTab("investigacao")}
-            className={`px-4 py-2 rounded-lg text-xs font-medium transition cursor-pointer flex items-center gap-2 ${
-              activeTab === "investigacao" ? "bg-emerald-600 text-white shadow-md" : "text-slate-400 hover:text-white"
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+              activeTab === "investigacao" ? "bg-emerald-600 text-white shadow-md shadow-emerald-900/30" : "text-slate-400 hover:text-white"
             }`}
           >
-            <FileText size={14} /> Investigação
+            <Users size={14} /> <span className="hidden sm:inline">Investigação</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("revenda")}
-            className={`px-4 py-2 rounded-lg text-xs font-medium transition cursor-pointer flex items-center gap-2 ${
-              activeTab === "revenda" ? "bg-emerald-600 text-white shadow-md" : "text-slate-400 hover:text-white"
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+              activeTab === "revenda" ? "bg-emerald-600 text-white shadow-md shadow-emerald-900/30" : "text-slate-400 hover:text-white"
             }`}
           >
-            <HardDrive size={14} /> Revenda & APKs
+            <ShoppingBag size={14} /> <span className="hidden sm:inline">Revenda</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("mapa")}
-            className={`px-4 py-2 rounded-lg text-xs font-medium transition cursor-pointer flex items-center gap-2 ${
-              activeTab === "mapa" ? "bg-emerald-600 text-white shadow-md" : "text-slate-400 hover:text-white"
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+              activeTab === "mapa" ? "bg-emerald-600 text-white shadow-md shadow-emerald-900/30" : "text-slate-400 hover:text-white"
             }`}
           >
-            <MapPin size={14} /> Mapa Global GPS
+            <Map size={14} /> <span className="hidden sm:inline">Mapa GPS</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("modulo4")}
-            className={`px-4 py-2 rounded-lg text-xs font-medium transition cursor-pointer flex items-center gap-2 ${
-              activeTab === "modulo4" ? "bg-emerald-600 text-white shadow-md" : "text-slate-400 hover:text-white"
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+              activeTab === "modulo4" ? "bg-emerald-600 text-white shadow-md shadow-emerald-900/30" : "text-slate-400 hover:text-white"
             }`}
           >
-            <FolderPlus size={14} /> Módulo 4
+            <Grid size={14} /> <span className="hidden sm:inline">Módulo 4</span>
           </button>
-        </div>
+        </nav>
 
         <button
           type="button"
           onClick={handleLogout}
-          className="flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-rose-400 transition cursor-pointer px-3 py-1.5 rounded-lg border border-slate-800 hover:border-rose-900/50 bg-slate-900"
+          className="text-xs text-red-400 hover:text-red-300 bg-red-950/30 border border-red-900/40 px-3 py-1.5 rounded-lg transition flex items-center gap-1 cursor-pointer ml-auto sm:ml-0"
         >
-          <LogOut size={14} /> Sair
+          <LogOut size={14} /> <span className="hidden md:inline">Sair</span>
         </button>
       </div>
     </header>

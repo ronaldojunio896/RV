@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Plus, List, FolderPlus, CheckCircle } from "lucide-react";
+import { Plus, List, FolderPlus, CheckCircle, Edit2, Trash2 } from "lucide-react";
 import Header from "@/components/Header";
 import LoginModal from "@/components/LoginModal";
 import FormInvestigado from "@/components/investigacao/FormInvestigado";
@@ -61,14 +61,15 @@ export default function Home() {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const [investigados, setInvestigados] = useState<PessoalData[]>([]);
-  const [streamings, setStreamings] = useState<StreamingItem[]>([]);
-  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [editingInvestigado, setEditingInvestigado] = useState<PessoalData | null>(null);
 
+  const [streamings, setStreamings] = useState<StreamingItem[]>([]);
   const [editingStreamingId, setEditingStreamingId] = useState<number | null>(null);
   const [stForm, setStForm] = useState<StreamingItem>({
     id: 0, nome: "", foto: "", vencimento: "", usuario: "", senha: "", apkUrl: "", vendido: false
   });
 
+  const [clientes, setClientes] = useState<Cliente[]>([]);
   const [cliForm, setCliForm] = useState<Cliente>({ id: 0, nome: "", contato: "", plano: "", validade: "" });
   const [mapsLoaded, setMapsLoaded] = useState(false);
 
@@ -134,25 +135,39 @@ export default function Home() {
   const handleSaveInvestigado = async (data: PessoalData) => {
     if (!data.nome) return addToast("Nome do investigado é obrigatório", "error");
 
-    const { id, ...payload } = data;
+    const payload = {
+      nome: data.nome,
+      foto: data.foto,
+      cep: data.cep,
+      endereco: data.endereco,
+      familiar: data.familiar,
+      contato: data.contato,
+      observacoes: data.observacoes,
+      lat: data.lat ? Number(data.lat) : null,
+      lng: data.lng ? Number(data.lng) : null,
+    };
 
-    const { data: inserted, error } = await supabase
-      .from("investigados")
-      .insert([{
-        ...payload,
-        lat: data.lat ? Number(data.lat) : null,
-        lng: data.lng ? Number(data.lng) : null,
-      }])
-      .select();
-
-    if (error) {
-      console.error("Erro Supabase:", error);
-      addToast("Erro ao salvar no banco de dados", "error");
-    } else if (inserted && inserted.length > 0) {
-      setInvestigados(prev => [inserted[0], ...prev]);
-      addToast("Investigado salvo com localização GPS!", "success");
-      setInvestigacaoSubTab("lista");
-      loadData();
+    if (data.id) {
+      const { error } = await supabase.from("investigados").update(payload).eq("id", data.id);
+      if (error) {
+        console.error("Erro Supabase:", error);
+        addToast("Erro ao atualizar no banco de dados", "error");
+      } else {
+        addToast("Cadastro do alvo atualizado!", "success");
+        setEditingInvestigado(null);
+        setInvestigacaoSubTab("lista");
+        loadData();
+      }
+    } else {
+      const { data: inserted, error } = await supabase.from("investigados").insert([payload]).select();
+      if (error) {
+        console.error("Erro Supabase:", error);
+        addToast("Erro ao salvar no banco de dados", "error");
+      } else if (inserted && inserted.length > 0) {
+        addToast("Investigado salvo com localização GPS!", "success");
+        setInvestigacaoSubTab("lista");
+        loadData();
+      }
     }
   };
 
@@ -166,6 +181,16 @@ export default function Home() {
     }
   };
 
+  const handleEditInvestigado = (inv: PessoalData) => {
+    setEditingInvestigado(inv);
+    setInvestigacaoSubTab("cadastro");
+  };
+
+  const handleEditStreaming = (st: StreamingItem) => {
+    setEditingStreamingId(st.id);
+    setStForm(st);
+  };
+
   const handleLogout = () => {
     setIsAuthenticated(false);
     localStorage.removeItem("painel_auth");
@@ -177,17 +202,20 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans">
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans pb-10">
       <Header activeTab={activeTab} setActiveTab={setActiveTab} handleLogout={handleLogout} />
 
-      <main className="max-w-7xl mx-auto p-6 space-y-8">
+      <main className="max-w-7xl mx-auto px-4 py-4 md:py-6 space-y-6">
         {activeTab === "investigacao" && (
           <div className="space-y-6">
             <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-              <div className="flex gap-4">
+              <div className="flex gap-2 md:gap-4">
                 <button
                   type="button"
-                  onClick={() => setInvestigacaoSubTab("cadastro")}
+                  onClick={() => {
+                    setEditingInvestigado(null);
+                    setInvestigacaoSubTab("cadastro");
+                  }}
                   className={`px-3 py-1.5 text-xs font-medium rounded-lg transition flex items-center gap-1.5 cursor-pointer ${
                     investigacaoSubTab === "cadastro" ? "bg-emerald-600 text-white" : "text-slate-400 hover:text-white"
                   }`}
@@ -207,9 +235,22 @@ export default function Home() {
             </div>
 
             {investigacaoSubTab === "cadastro" ? (
-              <FormInvestigado onSave={handleSaveInvestigado} mapsLoaded={mapsLoaded} />
+              <FormInvestigado
+                onSave={handleSaveInvestigado}
+                mapsLoaded={mapsLoaded}
+                initialData={editingInvestigado}
+                onCancelEdit={() => setEditingInvestigado(null)}
+              />
             ) : (
-              <ListaInvestigados investigados={investigados} onDelete={handleDeleteInvestigado} onNew={() => setInvestigacaoSubTab("cadastro")} />
+              <ListaInvestigados
+                investigados={investigados}
+                onDelete={handleDeleteInvestigado}
+                onEdit={handleEditInvestigado}
+                onNew={() => {
+                  setEditingInvestigado(null);
+                  setInvestigacaoSubTab("cadastro");
+                }}
+              />
             )}
           </div>
         )}
@@ -239,8 +280,8 @@ export default function Home() {
 
             {revendaSubTab === "streamings" ? (
               <div className="space-y-6">
-                <div className="bg-slate-900/50 backdrop-blur-sm border border-emerald-500/20 bg-emerald-950/10 rounded-xl p-6">
-                  <h3 className="text-lg font-semibold text-emerald-400 mb-4">
+                <div className="bg-slate-900/50 backdrop-blur-sm border border-emerald-500/20 bg-emerald-950/10 rounded-xl p-4 md:p-6">
+                  <h3 className="text-sm font-semibold text-emerald-400 mb-4 uppercase tracking-wider">
                     {editingStreamingId ? "Editar Produto / APK" : "Novo Produto / APK"}
                   </h3>
                   <form onSubmit={async (e) => {
@@ -273,45 +314,57 @@ export default function Home() {
                       placeholder="Serviço"
                       value={stForm.nome}
                       onChange={e => setStForm({...stForm, nome: e.target.value})}
-                      className="bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-sm text-slate-100"
+                      className="bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
                     />
                     <input
                       type="text"
                       placeholder="Foto URL"
                       value={stForm.foto}
                       onChange={e => setStForm({...stForm, foto: e.target.value})}
-                      className="bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-sm text-slate-100"
+                      className="bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
                     />
                     <input
                       type="date"
                       value={stForm.vencimento}
                       onChange={e => setStForm({...stForm, vencimento: e.target.value})}
-                      className="bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-sm text-slate-100"
+                      className="bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
                     />
                     <input
                       type="text"
                       placeholder="Usuário"
                       value={stForm.usuario}
                       onChange={e => setStForm({...stForm, usuario: e.target.value})}
-                      className="bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-sm text-slate-100"
+                      className="bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
                     />
                     <input
                       type="text"
                       placeholder="Senha"
                       value={stForm.senha}
                       onChange={e => setStForm({...stForm, senha: e.target.value})}
-                      className="bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-sm text-slate-100"
+                      className="bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
                     />
                     <input
                       type="text"
                       placeholder="Link APK"
                       value={stForm.apkUrl}
                       onChange={e => setStForm({...stForm, apkUrl: e.target.value})}
-                      className="bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-sm text-slate-100"
+                      className="bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
                     />
                     <div className="lg:col-span-3 flex justify-end gap-2">
-                      <button type="submit" className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium cursor-pointer">
-                        {editingStreamingId ? "Atualizar" : "Salvar Produto"}
+                      {editingStreamingId && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingStreamingId(null);
+                            setStForm({ id: 0, nome: "", foto: "", vencimento: "", usuario: "", senha: "", apkUrl: "", vendido: false });
+                          }}
+                          className="bg-slate-800 text-slate-300 px-4 py-2.5 rounded-lg text-xs font-medium cursor-pointer"
+                        >
+                          Cancelar
+                        </button>
+                      )}
+                      <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-lg text-xs font-medium cursor-pointer transition">
+                        {editingStreamingId ? "Atualizar Produto" : "Salvar Produto"}
                       </button>
                     </div>
                   </form>
@@ -321,13 +374,24 @@ export default function Home() {
                   {streamings.map(st => (
                     <div key={st.id} className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-4 space-y-3">
                       <div className="flex gap-3 items-center">
-                        {st.foto && <img src={st.foto} alt={st.nome} className="w-12 h-12 rounded-lg object-cover border border-slate-800" />}
-                        <div className="flex-1">
-                          <h4 className="font-bold text-slate-200">{st.nome}</h4>
-                          <p className="text-xs text-slate-400">Usuário: {st.usuario} | Senha: {st.senha}</p>
+                        {st.foto ? (
+                          <img src={st.foto} alt={st.nome} className="w-12 h-12 rounded-lg object-cover border border-slate-800 flex-shrink-0" />
+                        ) : (
+                          <div className="w-12 h-12 bg-slate-950 rounded-lg border border-slate-800 flex items-center justify-center text-[10px] text-slate-600 font-bold">APK</div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-bold text-slate-200 truncate">{st.nome}</h4>
+                          <p className="text-xs text-slate-400 truncate">Usuário: {st.usuario || "N/A"} | Senha: {st.senha || "N/A"}</p>
                         </div>
                       </div>
-                      <div className="flex gap-2 pt-2">
+                      <div className="flex gap-2 pt-2 border-t border-slate-800/60">
+                        <button
+                          type="button"
+                          onClick={() => handleEditStreaming(st)}
+                          className="bg-slate-800 hover:bg-slate-700 text-emerald-400 text-xs px-3 py-1.5 rounded-lg border border-slate-700 flex items-center gap-1 cursor-pointer font-medium"
+                        >
+                          <Edit2 size={13} /> Editar
+                        </button>
                         <button
                           type="button"
                           onClick={async () => {
@@ -345,9 +409,9 @@ export default function Home() {
                             addToast("Removido", "info");
                             loadData();
                           }}
-                          className="text-red-400 text-xs px-3 py-1.5 cursor-pointer"
+                          className="text-red-400 hover:text-red-300 text-xs px-2 py-1.5 cursor-pointer ml-auto flex items-center gap-1"
                         >
-                          Excluir
+                          <Trash2 size={13} />
                         </button>
                       </div>
                     </div>
@@ -355,7 +419,7 @@ export default function Home() {
                 </div>
               </div>
             ) : (
-              <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-6">
+              <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-4 md:p-6">
                 <form onSubmit={async (e) => {
                   e.preventDefault();
                   if (!cliForm.nome) return addToast("Nome do cliente obrigatório", "error");
@@ -374,23 +438,23 @@ export default function Home() {
                     placeholder="Nome do Cliente"
                     value={cliForm.nome}
                     onChange={e => setCliForm({...cliForm, nome: e.target.value})}
-                    className="bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-sm text-slate-100"
+                    className="bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
                   />
                   <input
                     type="text"
                     placeholder="WhatsApp / Contato"
                     value={cliForm.contato}
                     onChange={e => setCliForm({...cliForm, contato: e.target.value})}
-                    className="bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-sm text-slate-100"
+                    className="bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
                   />
                   <input
                     type="text"
                     placeholder="Plano / Serviço"
                     value={cliForm.plano}
                     onChange={e => setCliForm({...cliForm, plano: e.target.value})}
-                    className="bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-sm text-slate-100"
+                    className="bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
                   />
-                  <button type="submit" className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium cursor-pointer">
+                  <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium cursor-pointer transition">
                     Adicionar Cliente
                   </button>
                 </form>
@@ -404,20 +468,20 @@ export default function Home() {
         )}
 
         {activeTab === "modulo4" && (
-          <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-12 text-center border-dashed border-2 my-12">
+          <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-8 md:p-12 text-center border-dashed border-2 my-8">
             <FolderPlus className="mx-auto text-emerald-500 mb-4 opacity-40" size={48} />
-            <h3 className="text-xl font-bold text-slate-200">Módulo 4 - Reservado</h3>
-            <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto">
+            <h3 className="text-lg font-bold text-slate-200">Módulo 4 - Reservado</h3>
+            <p className="text-xs md:text-sm text-slate-500 mt-2 max-w-md mx-auto">
               Esta aba está ativa e preparada para receber novos recursos futuros.
             </p>
           </div>
         )}
       </main>
 
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2">
+      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-[90vw]">
         {toasts.map(toast => (
-          <div key={toast.id} className="bg-slate-800 border border-slate-700 text-slate-100 px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 text-sm">
-            <CheckCircle size={16} className="text-emerald-400" />
+          <div key={toast.id} className="bg-slate-800 border border-slate-700 text-slate-100 px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 text-xs md:text-sm">
+            <CheckCircle size={16} className="text-emerald-400 flex-shrink-0" />
             <span>{toast.message}</span>
           </div>
         ))}

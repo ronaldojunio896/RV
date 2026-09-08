@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Save, Upload, Link as LinkIcon } from "lucide-react";
+import { Save, Upload, Link as LinkIcon, X } from "lucide-react";
 
 interface PessoalData {
   id?: number;
@@ -19,14 +19,24 @@ interface PessoalData {
 interface FormInvestigadoProps {
   onSave: (data: PessoalData) => void;
   mapsLoaded: boolean;
+  initialData?: PessoalData | null;
+  onCancelEdit?: () => void;
 }
 
-export default function FormInvestigado({ onSave, mapsLoaded }: FormInvestigadoProps) {
+export default function FormInvestigado({ onSave, mapsLoaded, initialData, onCancelEdit }: FormInvestigadoProps) {
   const [fotoTipo, setFotoTipo] = useState<"link" | "file">("file");
   const [loadingGeo, setLoadingGeo] = useState(false);
   const [pessoalForm, setPessoalForm] = useState<PessoalData>({
     nome: "", foto: "", cep: "", endereco: "", familiar: "", contato: "", observacoes: "", lat: 0, lng: 0
   });
+
+  useEffect(() => {
+    if (initialData) {
+      setPessoalForm(initialData);
+    } else {
+      setPessoalForm({ nome: "", foto: "", cep: "", endereco: "", familiar: "", contato: "", observacoes: "", lat: 0, lng: 0 });
+    }
+  }, [initialData]);
 
   useEffect(() => {
     if (mapsLoaded && window.google && window.google.maps) {
@@ -71,7 +81,6 @@ export default function FormInvestigado({ onSave, mapsLoaded }: FormInvestigadoP
     let finalLat = pessoalForm.lat;
     let finalLng = pessoalForm.lng;
 
-    // Se o usuário digitou o endereço e não pegou pelo Autocomplete, faz Geocoding via API
     if ((!finalLat || !finalLng) && pessoalForm.endereco && window.google && window.google.maps) {
       const geocoder = new window.google.maps.Geocoder();
       try {
@@ -105,8 +114,23 @@ export default function FormInvestigado({ onSave, mapsLoaded }: FormInvestigadoP
   };
 
   return (
-    <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div className="lg:col-span-2 bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-6 space-y-4">
+    <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+      <div className="lg:col-span-2 bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-4 md:p-6 space-y-4">
+        <div className="flex justify-between items-center mb-2">
+          <h3 className="text-sm font-semibold text-emerald-400 uppercase tracking-wider">
+            {initialData ? "Editar Dados do Alvo" : "Novo Cadastro de Alvo"}
+          </h3>
+          {initialData && onCancelEdit && (
+            <button
+              type="button"
+              onClick={onCancelEdit}
+              className="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1 bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700"
+            >
+              <X size={14} /> Cancelar Edição
+            </button>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider ml-1">Nome Completo</label>
@@ -174,14 +198,14 @@ export default function FormInvestigado({ onSave, mapsLoaded }: FormInvestigadoP
         <button
           type="submit"
           disabled={loadingGeo}
-          className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2.5 rounded-lg transition shadow-lg shadow-emerald-900/20 flex items-center justify-center cursor-pointer text-sm disabled:opacity-50"
+          className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-3 rounded-lg transition shadow-lg shadow-emerald-900/20 flex items-center justify-center cursor-pointer text-sm disabled:opacity-50"
         >
-          <Save size={16} className="mr-2" /> {loadingGeo ? "Localizando no GPS..." : "Salvar Cadastro no Sistema"}
+          <Save size={16} className="mr-2" /> {loadingGeo ? "Localizando no GPS..." : initialData ? "Atualizar Cadastro" : "Salvar Cadastro no Sistema"}
         </button>
       </div>
 
-      <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-6 flex flex-col justify-between items-center text-center space-y-4">
-        <div className="w-32 h-32 rounded-xl bg-slate-950 border-2 border-slate-800 flex items-center justify-center overflow-hidden">
+      <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4 md:p-6 flex flex-col justify-between items-center text-center space-y-4">
+        <div className="w-28 h-28 md:w-32 md:h-32 rounded-xl bg-slate-950 border-2 border-slate-800 flex items-center justify-center overflow-hidden">
           {pessoalForm.foto ? (
             <img src={pessoalForm.foto} alt="Preview" className="w-full h-full object-cover" />
           ) : (
@@ -209,7 +233,7 @@ export default function FormInvestigado({ onSave, mapsLoaded }: FormInvestigadoP
 
           {fotoTipo === "file" ? (
             <label className="block w-full bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-400 cursor-pointer transition">
-              <span>Escolher foto do PC...</span>
+              <span>Escolher foto do PC / Celular...</span>
               <input
                 type="file"
                 accept="image/*"

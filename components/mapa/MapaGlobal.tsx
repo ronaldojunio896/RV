@@ -10,6 +10,7 @@ interface PessoalData {
   lat?: number;
   lng?: number;
   contato: string;
+  foto?: string;
 }
 
 interface MapaGlobalProps {
@@ -21,11 +22,13 @@ export default function MapaGlobal({ investigados, mapsLoaded }: MapaGlobalProps
   const mapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (mapRef.current && mapsLoaded && window.google) {
+    if (mapRef.current && mapsLoaded && window.google && window.google.maps) {
+      // Posição padrão (Belo Horizonte)
       const defaultCenter = { lat: -19.9322, lng: -43.9317 };
+
       const map = new window.google.maps.Map(mapRef.current, {
         center: defaultCenter,
-        zoom: 5,
+        zoom: 12,
         gestureHandling: "greedy",
         styles: [
           { elementType: "geometry", stylers: [{ color: "#1e293b" }] },
@@ -36,20 +39,31 @@ export default function MapaGlobal({ investigados, mapsLoaded }: MapaGlobalProps
         ],
       });
 
+      const bounds = new window.google.maps.LatLngBounds();
+      let hasValidCoords = false;
+
       investigados.forEach(inv => {
-        if (inv.lat && inv.lng) {
+        const latNum = Number(inv.lat);
+        const lngNum = Number(inv.lng);
+
+        if (latNum && lngNum && !isNaN(latNum) && !isNaN(lngNum)) {
+          hasValidCoords = true;
+          const pos = { lat: latNum, lng: lngNum };
+          bounds.extend(pos);
+
           const marker = new window.google.maps.Marker({
-            position: { lat: inv.lat, lng: inv.lng },
-            map,
+            position: pos,
+            map: map,
             title: inv.nome,
           });
 
           const infoWindow = new window.google.maps.InfoWindow({
             content: `
-              <div style="color: #0f172a; font-family: sans-serif; font-size: 12px; padding: 4px;">
-                <strong style="font-size: 14px;">${inv.nome}</strong><br/>
-                <span style="color: #475569;">${inv.endereco}</span><br/>
-                <small style="color: #059669;">Contato: ${inv.contato}</small>
+              <div style="color: #0f172a; font-family: sans-serif; font-size: 12px; padding: 6px; max-width: 200px;">
+                ${inv.foto ? `<img src="${inv.foto}" style="width:100%; height:80px; object-fit:cover; border-radius:6px; margin-bottom:6px;"/>` : ""}
+                <strong style="font-size: 14px; color: #0284c7;">${inv.nome}</strong><br/>
+                <span style="color: #475569;">${inv.endereco || "Endereço não informado"}</span><br/>
+                <small style="color: #059669; font-weight: bold;">Contato: ${inv.contato || "N/A"}</small>
               </div>
             `,
           });
@@ -59,8 +73,14 @@ export default function MapaGlobal({ investigados, mapsLoaded }: MapaGlobalProps
           });
         }
       });
+
+      if (hasValidCoords) {
+        map.fitBounds(bounds);
+      }
     }
   }, [mapsLoaded, investigados]);
+
+  const validos = investigados.filter(i => i.lat && i.lng && !isNaN(Number(i.lat)) && !isNaN(Number(i.lng))).length;
 
   return (
     <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-4 space-y-4">
@@ -68,8 +88,8 @@ export default function MapaGlobal({ investigados, mapsLoaded }: MapaGlobalProps
         <h3 className="text-md font-bold text-slate-100 flex items-center gap-2">
           <MapPin className="text-emerald-400" size={18} /> Rastreamento e Mapeamento Global
         </h3>
-        <span className="text-xs text-slate-400">
-          Pontos no Mapa: {investigados.filter(i => i.lat && i.lng).length}
+        <span className="text-xs text-slate-400 bg-slate-950 px-3 py-1 rounded-lg border border-slate-800">
+          Pontos no Mapa: <strong className="text-emerald-400">{validos}</strong> de {investigados.length} investigados
         </span>
       </div>
 

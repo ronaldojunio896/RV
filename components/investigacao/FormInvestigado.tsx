@@ -23,12 +23,13 @@ interface FormInvestigadoProps {
 
 export default function FormInvestigado({ onSave, mapsLoaded }: FormInvestigadoProps) {
   const [fotoTipo, setFotoTipo] = useState<"link" | "file">("file");
+  const [loadingGeo, setLoadingGeo] = useState(false);
   const [pessoalForm, setPessoalForm] = useState<PessoalData>({
     nome: "", foto: "", cep: "", endereco: "", familiar: "", contato: "", observacoes: "", lat: 0, lng: 0
   });
 
   useEffect(() => {
-    if (mapsLoaded && window.google) {
+    if (mapsLoaded && window.google && window.google.maps) {
       const input = document.getElementById("endereco-input") as HTMLInputElement;
       if (input) {
         const autocomplete = new window.google.maps.places.Autocomplete(input, {
@@ -63,10 +64,44 @@ export default function FormInvestigado({ onSave, mapsLoaded }: FormInvestigadoP
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(pessoalForm);
+    setLoadingGeo(true);
+
+    let finalLat = pessoalForm.lat;
+    let finalLng = pessoalForm.lng;
+
+    // Se o usuário digitou o endereço e não pegou pelo Autocomplete, faz Geocoding via API
+    if ((!finalLat || !finalLng) && pessoalForm.endereco && window.google && window.google.maps) {
+      const geocoder = new window.google.maps.Geocoder();
+      try {
+        const result = await new Promise<any>((resolve) => {
+          geocoder.geocode({ address: pessoalForm.endereco }, (results, status) => {
+            if (status === "OK" && results && results[0]) {
+              resolve(results[0].geometry.location);
+            } else {
+              resolve(null);
+            }
+          });
+        });
+
+        if (result) {
+          finalLat = result.lat();
+          finalLng = result.lng();
+        }
+      } catch (err) {
+        console.error("Erro no geocoding:", err);
+      }
+    }
+
+    onSave({
+      ...pessoalForm,
+      lat: finalLat,
+      lng: finalLng
+    });
+
     setPessoalForm({ nome: "", foto: "", cep: "", endereco: "", familiar: "", contato: "", observacoes: "", lat: 0, lng: 0 });
+    setLoadingGeo(false);
   };
 
   return (
@@ -104,13 +139,13 @@ export default function FormInvestigado({ onSave, mapsLoaded }: FormInvestigadoP
             />
           </div>
           <div>
-            <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider ml-1">Endereço (Google Autocomplete)</label>
+            <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider ml-1">Endereço Completo</label>
             <input
               id="endereco-input"
               type="text"
               value={pessoalForm.endereco}
               onChange={e => setPessoalForm({ ...pessoalForm, endereco: e.target.value })}
-              placeholder="Busque rua, número ou cidade..."
+              placeholder="Digite rua, número, bairro e cidade..."
               className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500 text-sm mt-1"
             />
           </div>
@@ -135,12 +170,13 @@ export default function FormInvestigado({ onSave, mapsLoaded }: FormInvestigadoP
             className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500 text-sm mt-1 resize-none"
           />
         </div>
-
+        
         <button
           type="submit"
-          className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2.5 rounded-lg transition shadow-lg shadow-emerald-900/20 flex items-center justify-center cursor-pointer text-sm"
+          disabled={loadingGeo}
+          className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2.5 rounded-lg transition shadow-lg shadow-emerald-900/20 flex items-center justify-center cursor-pointer text-sm disabled:opacity-50"
         >
-          <Save size={16} className="mr-2" /> Salvar Cadastro no Sistema
+          <Save size={16} className="mr-2" /> {loadingGeo ? "Localizando no GPS..." : "Salvar Cadastro no Sistema"}
         </button>
       </div>
 

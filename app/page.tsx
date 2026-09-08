@@ -78,7 +78,6 @@ export default function Home() {
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
   };
 
-  // Carregar dados iniciais do Supabase
   const loadData = async () => {
     const { data: invData } = await supabase.from("investigados").select("*").order("id", { ascending: false });
     if (invData) setInvestigados(invData);
@@ -135,13 +134,25 @@ export default function Home() {
   const handleSaveInvestigado = async (data: PessoalData) => {
     if (!data.nome) return addToast("Nome do investigado é obrigatório", "error");
 
-    const { data: inserted, error } = await supabase.from("investigados").insert([data]).select();
+    const { id, ...payload } = data;
+
+    const { data: inserted, error } = await supabase
+      .from("investigados")
+      .insert([{
+        ...payload,
+        lat: data.lat ? Number(data.lat) : null,
+        lng: data.lng ? Number(data.lng) : null,
+      }])
+      .select();
+
     if (error) {
+      console.error("Erro Supabase:", error);
       addToast("Erro ao salvar no banco de dados", "error");
-    } else if (inserted) {
+    } else if (inserted && inserted.length > 0) {
       setInvestigados(prev => [inserted[0], ...prev]);
-      addToast("Investigado salvo no Supabase com sucesso!", "success");
+      addToast("Investigado salvo com localização GPS!", "success");
       setInvestigacaoSubTab("lista");
+      loadData();
     }
   };
 

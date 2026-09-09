@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Plus, List, FolderPlus, CheckCircle, Edit2, Trash2 } from "lucide-react";
+import { Plus, List, FolderPlus, CheckCircle, UploadCloud, Edit2, Trash2 } from "lucide-react";
 import Header from "@/components/Header";
 import LoginModal from "@/components/LoginModal";
 import FormInvestigado from "@/components/investigacao/FormInvestigado";
 import ListaInvestigados from "@/components/investigacao/ListaInvestigados";
 import MapaGlobal from "@/components/mapa/MapaGlobal";
 import { supabase } from "@/lib/supabase";
+import { RAW_ALVOS } from "@/lib/alvos";
 
 interface PessoalData {
   id?: number;
@@ -59,6 +60,7 @@ export default function Home() {
   const [investigacaoSubTab, setInvestigacaoSubTab] = useState<"cadastro" | "lista">("cadastro");
   const [revendaSubTab, setRevendaSubTab] = useState<"streamings" | "clientes">("streamings");
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [importing, setImporting] = useState(false);
 
   const [investigados, setInvestigados] = useState<PessoalData[]>([]);
   const [editingInvestigado, setEditingInvestigado] = useState<PessoalData | null>(null);
@@ -132,6 +134,64 @@ export default function Home() {
     }
   }, []);
 
+  const handleBatchImport = async () => {
+    if (!confirm(`Deseja importar a lista com os ${RAW_ALVOS.length} investigados do CEP 31980-410 para o banco de dados?`)) return;
+
+    setImporting(true);
+    addToast(`Iniciando importação de ${RAW_ALVOS.length} alvos...`, "info");
+
+    let count = 0;
+    const geocoder = window.google && window.google.maps ? new window.google.maps.Geocoder() : null;
+
+    for (const item of RAW_ALVOS) {
+      let latVal = null;
+      let lngVal = null;
+
+      if (geocoder) {
+        try {
+          const res = await new Promise<any>((resolve) => {
+            geocoder.geocode({ address: item.endereco }, (results: any, status: any) => {
+              if (status === "OK" && results && results[0]) {
+                resolve(results[0].geometry.location);
+              } else {
+                resolve(null);
+              }
+            });
+          });
+
+          if (res) {
+            latVal = res.lat();
+            lngVal = res.lng();
+          }
+        } catch (e) {
+          console.error("Geocoding err:", e);
+        }
+      }
+
+      const obs = `CPF: ${item.cpf} | Nasc: ${item.nascimento} | Renda: ${item.renda}${item.profissao ? " | Profissão: " + item.profissao : ""}${item.situacao ? " | Status: " + item.situacao : ""}`;
+
+      const payload = {
+        nome: item.nome,
+        foto: "",
+        cep: item.cep,
+        endereco: item.endereco,
+        familiar: item.mae ? `Mãe: ${item.mae}` : "",
+        contato: item.telefones || item.cpf,
+        observacoes: obs,
+        lat: latVal,
+        lng: lngVal
+      };
+
+      await supabase.from("investigados").insert([payload]);
+      count++;
+    }
+
+    setImporting(false);
+    addToast(`${count} investigados importados com sucesso!`, "success");
+    loadData();
+    setInvestigacaoSubTab("lista");
+  };
+
   const handleSaveInvestigado = async (data: PessoalData) => {
     if (!data.nome) return addToast("Nome do investigado é obrigatório", "error");
 
@@ -150,7 +210,6 @@ export default function Home() {
     if (data.id) {
       const { error } = await supabase.from("investigados").update(payload).eq("id", data.id);
       if (error) {
-        console.error("Erro Supabase:", error);
         addToast("Erro ao atualizar no banco de dados", "error");
       } else {
         addToast("Cadastro do alvo atualizado!", "success");
@@ -161,7 +220,6 @@ export default function Home() {
     } else {
       const { data: inserted, error } = await supabase.from("investigados").insert([payload]).select();
       if (error) {
-        console.error("Erro Supabase:", error);
         addToast("Erro ao salvar no banco de dados", "error");
       } else if (inserted && inserted.length > 0) {
         addToast("Investigado salvo com localização GPS!", "success");
@@ -208,7 +266,7 @@ export default function Home() {
       <main className="max-w-7xl mx-auto px-4 py-4 md:py-6 space-y-6">
         {activeTab === "investigacao" && (
           <div className="space-y-6">
-            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+            <div className="flex flex-wrap justify-between items-center border-b border-slate-800 pb-3 gap-3">
               <div className="flex gap-2 md:gap-4">
                 <button
                   type="button"
@@ -232,6 +290,16 @@ export default function Home() {
                   <List size={14} /> Alvos Cadastrados ({investigados.length})
                 </button>
               </div>
+
+              <button
+                type="button"
+                onClick={handleBatchImport}
+                disabled={importing}
+                className="bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 cursor-pointer transition disabled:opacity-50"
+              >
+                <UploadCloud size={14} />
+                <span>{importing ? "Importando Alvos..." : `Importar Lista de Alvos (${RAW_ALVOS.length})`}</span>
+              </button>
             </div>
 
             {investigacaoSubTab === "cadastro" ? (

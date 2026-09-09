@@ -1,14 +1,14 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Plus, List, FolderPlus, CheckCircle, UploadCloud, Edit2, Trash2 } from "lucide-react";
+import { Plus, List, FolderPlus, CheckCircle, UploadCloud, FileText, Edit2, Trash2 } from "lucide-react";
 import Header from "@/components/Header";
 import LoginModal from "@/components/LoginModal";
 import FormInvestigado from "@/components/investigacao/FormInvestigado";
 import ListaInvestigados from "@/components/investigacao/ListaInvestigados";
+import ModalImportacaoTexto from "@/components/investigacao/ModalImportacaoTexto";
 import MapaGlobal from "@/components/mapa/MapaGlobal";
 import { supabase } from "@/lib/supabase";
-import { RAW_ALVOS } from "@/lib/alvos";
 
 interface PessoalData {
   id?: number;
@@ -60,7 +60,7 @@ export default function Home() {
   const [investigacaoSubTab, setInvestigacaoSubTab] = useState<"cadastro" | "lista">("cadastro");
   const [revendaSubTab, setRevendaSubTab] = useState<"streamings" | "clientes">("streamings");
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [importing, setImporting] = useState(false);
+  const [isModalTextOpen, setIsModalTextOpen] = useState(false);
 
   const [investigados, setInvestigados] = useState<PessoalData[]>([]);
   const [editingInvestigado, setEditingInvestigado] = useState<PessoalData | null>(null);
@@ -134,20 +134,15 @@ export default function Home() {
     }
   }, []);
 
-  const handleBatchImport = async () => {
-    if (!confirm(`Deseja importar a lista com os ${RAW_ALVOS.length} investigados do CEP 31980-410 para o banco de dados?`)) return;
-
-    setImporting(true);
-    addToast(`Iniciando importação de ${RAW_ALVOS.length} alvos...`, "info");
-
-    let count = 0;
+  const handleImportParsedText = async (parsedList: any[]) => {
+    addToast(`Importando ${parsedList.length} alvos do texto...`, "info");
     const geocoder = window.google && window.google.maps ? new window.google.maps.Geocoder() : null;
 
-    for (const item of RAW_ALVOS) {
+    for (const item of parsedList) {
       let latVal = null;
       let lngVal = null;
 
-      if (geocoder) {
+      if (geocoder && item.endereco) {
         try {
           const res = await new Promise<any>((resolve) => {
             geocoder.geocode({ address: item.endereco }, (results: any, status: any) => {
@@ -183,11 +178,9 @@ export default function Home() {
       };
 
       await supabase.from("investigados").insert([payload]);
-      count++;
     }
 
-    setImporting(false);
-    addToast(`${count} investigados importados com sucesso!`, "success");
+    addToast(`Sucesso! ${parsedList.length} alvos adicionados ao banco de dados.`, "success");
     loadData();
     setInvestigacaoSubTab("lista");
   };
@@ -293,12 +286,11 @@ export default function Home() {
 
               <button
                 type="button"
-                onClick={handleBatchImport}
-                disabled={importing}
-                className="bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 cursor-pointer transition disabled:opacity-50"
+                onClick={() => setIsModalTextOpen(true)}
+                className="bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 cursor-pointer transition"
               >
-                <UploadCloud size={14} />
-                <span>{importing ? "Importando Alvos..." : `Importar Lista de Alvos (${RAW_ALVOS.length})`}</span>
+                <FileText size={14} />
+                <span>Colar Consulta Mind-7</span>
               </button>
             </div>
 
@@ -545,6 +537,12 @@ export default function Home() {
           </div>
         )}
       </main>
+
+      <ModalImportacaoTexto
+        isOpen={isModalTextOpen}
+        onClose={() => setIsModalTextOpen(false)}
+        onImport={handleImportParsedText}
+      />
 
       <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-[90vw]">
         {toasts.map(toast => (
